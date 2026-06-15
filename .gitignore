@@ -19,3 +19,6 @@ public/sw.js.map
 public/swe-worker-*.js
 public/workbox-*.js
 .gstack/
+
+# LOGO 源素材（运行时图标已落 public/ 与 src/app/）
+LOGO1/
