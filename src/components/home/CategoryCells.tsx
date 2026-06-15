@@ -33,9 +33,11 @@ const TILE_LAYOUT = [
 ];
 
 function CategoryCell({ medium, covers }: Cell) {
-  // 补足 3 张：缺位用稳定 seed 派生不同色的渐变，避免三张同色
+  // 真封面靠顶层槽位（z 高）填充，占位垫底——否则真封面不足 3 张时会被补位占位盖住，只露一条边
+  const realCount = Math.min(covers.length, TILE_LAYOUT.length);
+  const fillCount = TILE_LAYOUT.length - realCount;
   const tiles = TILE_LAYOUT.map((_, i) =>
-    covers[i] ?? { src: null, uuid: `${medium}-fill-${i}` },
+    i < fillCount ? { src: null, uuid: `${medium}-fill-${i}` } : covers[i - fillCount],
   );
 
   return (

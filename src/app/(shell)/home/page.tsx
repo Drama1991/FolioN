@@ -6,8 +6,7 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { BentoTop } from "@/components/home/BentoTop";
 import { ActivityStrip } from "@/components/home/ActivityStrip";
 import { CategoryCells } from "@/components/home/CategoryCells";
-import { ALL_UI_MEDIUMS, fromNeoDBCategory } from "@/lib/neodb/mediumMap";
-import type { UiMedium } from "@/lib/format/verbs";
+import { ALL_UI_MEDIUMS } from "@/lib/neodb/mediumMap";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -32,19 +31,19 @@ export default async function HomePage() {
   // 最近 5 条 mark：跨所有 shelf type
   const recentMarks = allMarks.slice(0, 5).map(markToTimelineEntry);
 
-  // 每个分类的最近 3 张封面：复用 allMarks，按 medium 分组，零额外 fetch
-  const coversByMedium = new Map<UiMedium, { src?: string | null; uuid: string }[]>();
-  for (const m of ALL_UI_MEDIUMS) coversByMedium.set(m, []);
-  for (const mark of allMarks) {
-    const medium = fromNeoDBCategory(mark.item.category);
-    const list = coversByMedium.get(medium);
-    if (list && list.length < 3) {
-      list.push({ src: mark.item.cover_image_url, uuid: mark.item.uuid });
-    }
-  }
-  const categoryCells = ALL_UI_MEDIUMS.map((m) => ({
+  // 每个分类封面墙：拉该分类「已完成」最近 3 个，与点进去的 archive 默认视图（complete + 按时间）一致。
+  // 不能复用上面 4 个 shelf 的合并结果——complete 第一页混合所有分类，音乐/播客这类少量分类会被电影剧集挤出窗口。
+  const completeByMedium = await Promise.all(
+    ALL_UI_MEDIUMS.map((m) =>
+      listShelf({ type: "complete", category: m, page: 1 }).catch(() => ({ data: [] as never[] })),
+    ),
+  );
+  const categoryCells = ALL_UI_MEDIUMS.map((m, i) => ({
     medium: m,
-    covers: coversByMedium.get(m) ?? [],
+    covers: (completeByMedium[i].data ?? []).slice(0, 3).map((mark) => ({
+      src: mark.item.cover_image_url,
+      uuid: mark.item.uuid,
+    })),
   }));
 
   // featured：progress 模式取最新在看；否则 fallback 到最新一条任意 mark
