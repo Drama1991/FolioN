@@ -42,26 +42,85 @@ export function CommunityPosts({
   reviewCount,
   homeInstance,
 }: Props) {
-  if (initialComments.length === 0 && initialReviews.length === 0) return null;
+  const hasComments = initialComments.length > 0;
+  const hasReviews = initialReviews.length > 0;
+  const [activeTab, setActiveTab] = useState<"comment" | "review">(hasComments ? "comment" : "review");
+
+  if (!hasComments && !hasReviews) return null;
+
+  const tabs = [
+    hasComments ? { id: "comment" as const, label: "短评", count: commentCount } : null,
+    hasReviews ? { id: "review" as const, label: "长评", count: reviewCount } : null,
+  ].filter((tab): tab is { id: "comment" | "review"; label: string; count: number } => tab !== null);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {initialComments.length > 0 && (
-        <CommentsCard
-          uuid={uuid}
-          initial={initialComments}
-          initialPages={initialCommentPages}
-          total={commentCount}
-        />
+    <div style={{ border: "0.5px solid var(--border)", borderRadius: "var(--r)", overflow: "hidden" }}>
+      <div
+        style={{
+          padding: "11px 16px",
+          borderBottom: "0.5px solid var(--border)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <span className="section-label">社区讨论</span>
+        {tabs.length > 1 ? (
+          <div role="tablist" aria-label="社区讨论类型" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {tabs.map((tab) => {
+              const selected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls={`community-${uuid}-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    border: 0,
+                    borderRadius: 999,
+                    padding: "4px 8px",
+                    background: selected ? "var(--bg2)" : "transparent",
+                    color: selected ? "var(--text)" : "var(--text3)",
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    cursor: "pointer",
+                  }}
+                >
+                  {tab.label} {tab.count}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text3)" }}>
+            {tabs[0].count} 条{tabs[0].label}
+          </span>
+        )}
+      </div>
+
+      {hasComments && (
+        <div id={`community-${uuid}-comment`} role="tabpanel" hidden={activeTab !== "comment"}>
+          <CommentsCard
+            uuid={uuid}
+            initial={initialComments}
+            initialPages={initialCommentPages}
+            total={commentCount}
+          />
+        </div>
       )}
-      {initialReviews.length > 0 && (
-        <ReviewsCard
-          uuid={uuid}
-          initial={initialReviews}
-          initialPages={initialReviewPages}
-          total={reviewCount}
-          homeInstance={homeInstance}
-        />
+      {hasReviews && (
+        <div id={`community-${uuid}-review`} role="tabpanel" hidden={activeTab !== "review"}>
+          <ReviewsCard
+            uuid={uuid}
+            initial={initialReviews}
+            initialPages={initialReviewPages}
+            total={reviewCount}
+            homeInstance={homeInstance}
+          />
+        </div>
       )}
     </div>
   );
@@ -104,7 +163,7 @@ function CommentsCard({
   }, [uuid, page, pages, loading]);
 
   return (
-    <Card title="社区短评" shown={list.length} total={total}>
+    <>
       {list.map((c, i) => (
         <CommentRow key={c.id} c={c} isLast={i === list.length - 1 && page >= pages} />
       ))}
@@ -116,7 +175,7 @@ function CommentsCard({
         shown={list.length}
         total={total}
       />
-    </Card>
+    </>
   );
 }
 
@@ -159,7 +218,7 @@ function ReviewsCard({
   }, [uuid, page, pages, loading]);
 
   return (
-    <Card title="社区长评" shown={list.length} total={total}>
+    <>
       {list.map((r, i) => (
         <ReviewRow key={r.id} r={r} isLast={i === list.length - 1 && page >= pages} homeInstance={homeInstance} />
       ))}
@@ -171,7 +230,7 @@ function ReviewsCard({
         shown={list.length}
         total={total}
       />
-    </Card>
+    </>
   );
 }
 
@@ -184,38 +243,6 @@ function dedupe<T extends { id: string }>(arr: T[]): T[] {
     out.push(x);
   }
   return out;
-}
-
-function Card({
-  title,
-  shown,
-  total,
-  children,
-}: {
-  title: string;
-  shown: number;
-  total: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ border: "0.5px solid var(--border)", borderRadius: "var(--r)", overflow: "hidden" }}>
-      <div
-        style={{
-          padding: "11px 16px",
-          borderBottom: "0.5px solid var(--border)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span className="section-label">{title}</span>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text3)" }}>
-          {shown < total ? `${shown} / ${total} 条` : `${total} 条`}
-        </span>
-      </div>
-      {children}
-    </div>
-  );
 }
 
 function LoadMoreFooter({
