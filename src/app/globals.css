@@ -1272,11 +1272,34 @@ a.stat-cell:hover { background: var(--bg); box-shadow: inset 0 0 0 0.5px var(--b
   }
 }
 
-/* ───── Profile 我的快捷入口（移动端：通知 / 设置 / 分享 / ⋯ 溢出菜单） ─────
+/* ───── Profile 我的快捷入口（移动端：AI / 通知 / 设置 / 分享 / ⋯ 溢出菜单） ─────
    2026-05-24 IA 改版：Drawer 删除后，"通知/设置/登出"在 /profile/me 头部聚合为图标行。
    2026-05-25 视觉权重平衡：把"在 NeoDB 编辑"和"分享主页"两个大胶囊统一降级为图标方块，
-   "在 NeoDB 编辑"+"登出"两条低频/外链项收进 ⋯ 溢出菜单，让 4 个一级入口（通知/设置/
+   "在 NeoDB 编辑"+"登出"两条低频/外链项收进 ⋯ 溢出菜单，让 5 个一级入口（AI/通知/设置/
    分享/⋯）等大并排。桌面端走 AvatarMenu + .profile-actions-desktop，这一行隐藏。 */
+.profile-ai-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r2);
+  background: var(--bg);
+  color: var(--text2);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.profile-ai-button > i { font-size: 14px; }
+.profile-ai-button:hover {
+  background: var(--bg2);
+  color: var(--text);
+  border-color: var(--border2);
+}
+
 .profile-me-actions {
   display: none;
 }

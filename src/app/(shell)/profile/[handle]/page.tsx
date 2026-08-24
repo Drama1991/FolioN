@@ -13,6 +13,7 @@ import { reviewToUi } from "@/lib/neodb/mappers";
 import { gradientFor } from "@/lib/format/cover-gradient";
 import { ShareProfileButton } from "@/components/profile/ShareProfileButton";
 import { ProfileOverflowMenu } from "@/components/profile/ProfileOverflowMenu";
+import { ProfileAIButton } from "@/components/profile/ProfileAIButton";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { pullYearMarks, summarizeYear } from "@/lib/profile/yearStats";
 
@@ -207,6 +208,7 @@ export default async function ProfilePage({ params, searchParams }: PageProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {/* 桌面端：两个胶囊按钮（编辑外链 + 分享）。移动端 CSS 隐藏。 */}
             <div className="profile-actions-desktop">
+              <ProfileAIButton />
               <a
                 className="btn"
                 href={profileUrl}
@@ -218,11 +220,12 @@ export default async function ProfilePage({ params, searchParams }: PageProps) {
               </a>
               <ShareProfileButton url={profileUrl} />
             </div>
-            {/* 移动端：4 等大图标方块（通知/设置/分享/⋯）。
+            {/* 移动端：5 个等大图标方块（AI/通知/设置/分享/⋯）。
                原"在 NeoDB 编辑"和"登出"收进 ⋯ 溢出菜单，
-               让站内高频入口（通知/设置）跟分享获得平等的一级视觉权重。
+               让 AI、站内高频入口（通知/设置）跟分享获得平等的一级视觉权重。
                桌面端走 AvatarMenu + .profile-actions-desktop，本行 CSS 隐藏。 */}
             <div className="profile-me-actions">
+              <ProfileAIButton variant="mobile" />
               <Link href="/settings" aria-label="设置" className="profile-me-icon">
                 <i className="ti ti-settings" aria-hidden />
               </Link>

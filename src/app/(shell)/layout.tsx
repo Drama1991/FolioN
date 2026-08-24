@@ -4,7 +4,6 @@ import { Header } from "@/components/shell/Header";
 import { BottomTabBar } from "@/components/shell/BottomTabBar";
 import { ToastHost } from "@/components/shared/Toast";
 import { RecordModal } from "@/components/record-modal/RecordModal";
-import { AIFAB } from "@/components/shell/AIFAB";
 import { AIPanel } from "@/components/ai-panel/AIPanel";
 import { SyncTicker } from "@/components/shell/SyncTicker";
 
@@ -21,7 +20,6 @@ export default async function ShellLayout({ children }: { children: React.ReactN
       <main>{children}</main>
       <RecordModal />
       <AIPanel />
-      <AIFAB />
       <BottomTabBar />
       <SyncTicker />
       <ToastHost />
