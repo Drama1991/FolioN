@@ -3,7 +3,7 @@ import { getApp, setApp, type AppRecord } from "@/lib/auth/apps-cache";
 
 const SCOPES = "read write";
 const CLIENT_NAME = "folion";
-const WEBSITE = "https://github.com/Drama1991/Folio";
+const WEBSITE = "https://github.com/Drama1991/FolioN";
 
 export interface RegisteredApp extends AppRecord {
   instance: string;

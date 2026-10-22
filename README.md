@@ -50,7 +50,7 @@ folion 是 [NeoDB](https://neodb.social/) 的第三方客户端，把书影音�
 npm install
 
 # 2. 配置环境变量（项目根目录新建 .env.local）
-cp .env.example .env.local   # 如未提供示例，参考下方"环境变量"自行创建
+cp .env.example .env.local
 
 # 3. 启动开发服务
 npm run dev                  # http://localhost:3000
