@@ -551,20 +551,30 @@ function PinnedModelsBlock({
                   type="button"
                   onClick={() => onTogglePin(model)}
                   aria-pressed={isPinned}
+                  aria-label={
+                    isDefault
+                      ? `${model}，默认模型必须固定`
+                      : isPinned
+                        ? `从面板菜单取消固定 ${model}`
+                        : `固定 ${model} 到面板菜单`
+                  }
                   title={isDefault ? "默认模型必须固定" : isPinned ? "从面板菜单取消固定" : "固定到面板菜单"}
                   style={{
                     border: `0.5px solid ${isPinned ? "var(--gold)" : "var(--border)"}`,
-                    borderRadius: 999,
+                    borderRadius: "var(--r2)",
                     background: isPinned ? "rgba(239,159,39,0.10)" : "transparent",
                     color: isPinned ? "var(--text)" : "var(--text2)",
-                    padding: "3px 9px",
+                    padding: 0,
+                    width: 28,
                     minHeight: 28,
-                    fontSize: 10,
                     cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {isPinned ? "已固定" : "固定"}
+                  <i className={`ti ti-pin${isPinned ? "-filled" : ""}`} aria-hidden="true" style={{ fontSize: 14 }} />
                 </button>
               </div>
             );
