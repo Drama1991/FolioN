@@ -40,6 +40,8 @@ export interface SourceLink {
 export interface ChatMsg {
   role: "ai" | "user";
   text: string;
+  /** The model that produced this assistant message. */
+  model?: string;
   /** 联网搜索注入的来源链接，仅 AI 消息可能携带 */
   sources?: SourceLink[];
 }
@@ -50,6 +52,10 @@ interface AIPanelState {
   history: ChatMsg[];
   typing: boolean;
   sessionId: string | null;
+  selectedModel: string | null;
+  defaultModel: string | null;
+  pinnedModels: string[];
+  modelPreferencesLoaded: boolean;
   /** 触发点视口坐标（DraggableWindow 用来做展开动画与首次定位） */
   origin: { x: number; y: number } | null;
   /** 联网搜索开关（sticky：用户切换后保持） */
@@ -60,6 +66,8 @@ interface AIPanelState {
     origin?: { x: number; y: number } | null,
   ) => void;
   setWebSearch: (on: boolean) => void;
+  setModelPreferences: (defaultModel: string, pinnedModels: string[]) => void;
+  setSelectedModel: (model: string) => void;
   send: (text: string) => Promise<void>;
   newChat: () => void;
   loadSession: (s: AISession) => void;
@@ -81,6 +89,7 @@ function snapshotSession(
   ctx: AIContextInfo,
   history: ChatMsg[],
   createdAt: number,
+  model: string | null,
 ): AISession {
   return {
     id,
@@ -89,6 +98,7 @@ function snapshotSession(
     contextTitle: ctx.title,
     contextSubtitle: ctx.subtitle,
     item: ctx.item,
+    model: model ?? undefined,
     messages: history,
     createdAt,
     updatedAt: Date.now(),
@@ -109,10 +119,58 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
   history: [],
   typing: false,
   sessionId: null,
+  selectedModel: null,
+  defaultModel: null,
+  pinnedModels: [],
+  modelPreferencesLoaded: false,
   origin: null,
   webSearch: false,
 
   setWebSearch: (on) => set({ webSearch: on }),
+
+  setModelPreferences: (defaultModel, pinnedModels) => {
+    const normalizedDefault = defaultModel.trim();
+    const normalizedPins = [...new Set(pinnedModels.map((model) => model.trim()).filter(Boolean))];
+    const current = get();
+    const hasActiveConversation = !!current.sessionId && hasUserMessage(current.history);
+    const selectedModel = hasActiveConversation && current.selectedModel && normalizedPins.includes(current.selectedModel)
+      ? current.selectedModel
+      : normalizedDefault || normalizedPins[0] || null;
+    set({
+      defaultModel: normalizedDefault || null,
+      pinnedModels: normalizedPins,
+      modelPreferencesLoaded: true,
+      selectedModel,
+    });
+    const latest = get();
+    if (latest.sessionId && hasUserMessage(latest.history)) {
+      const createdAt = sessionMeta.get(latest.sessionId) ?? Date.now();
+      upsertSession(snapshotSession(
+        latest.sessionId,
+        latest.context,
+        latest.history,
+        createdAt,
+        selectedModel,
+      ));
+    }
+  },
+
+  setSelectedModel: (model) => {
+    const current = get();
+    if (!current.pinnedModels.includes(model)) return;
+    set({ selectedModel: model });
+    const latest = get();
+    if (latest.sessionId && hasUserMessage(latest.history)) {
+      const createdAt = sessionMeta.get(latest.sessionId) ?? Date.now();
+      upsertSession(snapshotSession(
+        latest.sessionId,
+        latest.context,
+        latest.history,
+        createdAt,
+        model,
+      ));
+    }
+  },
 
   setOpen: (open, ctx, origin) => {
     if (!open) {
@@ -151,6 +209,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
         },
         history: restored.messages,
         sessionId: restored.id,
+        selectedModel: restored.model?.trim() || get().defaultModel,
         typing: false,
         origin: origin ?? null,
       });
@@ -160,6 +219,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
         context: nextCtx,
         history: [{ role: "ai", text: welcomeFor(nextCtx) }],
         sessionId: null,
+        selectedModel: get().defaultModel,
         typing: false,
         origin: origin ?? null,
       });
@@ -170,6 +230,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
     const trimmed = text.trim();
     if (!trimmed) return;
     const ctx = get().context;
+    const model = get().selectedModel ?? get().defaultModel;
 
     // 先把用户消息塞进 history，typing=true 让面板出现"打字中"三点动画。
     // 不预插空 AI 槽位——首个 chunk 到达时再创建 AI 消息，避免出现空气泡。
@@ -191,7 +252,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
     } else {
       createdAt = sessionMeta.get(sid) ?? Date.now();
     }
-    upsertSession(snapshotSession(sid, ctx, get().history, createdAt));
+    upsertSession(snapshotSession(sid, ctx, get().history, createdAt, model));
     const capturedSid = sid;
 
     const historyForRequest = get()
@@ -204,10 +265,11 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
         ? { kind: "home" as const }
         : { kind: "item" as const, item: ctx.item };
     const body = {
-      history: historyForRequest,
+      history: historyForRequest.map(({ role, text }) => ({ role, text })),
       user: trimmed,
       context: ctxPart,
       webSearch,
+      model: model ?? undefined,
     };
 
     try {
@@ -226,7 +288,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
             ? USER_MESSAGE.AI_CONFIG_MISSING
             : USER_MESSAGE.AI_REQUEST_FAILED;
         if (get().sessionId === capturedSid) {
-          pushOrAppendAi(set, msg);
+          pushOrAppendAi(set, msg, model ?? undefined);
           set({ typing: false });
         }
         return;
@@ -248,14 +310,14 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
           return;
         }
         if (event === "delta" && typeof data === "string" && data) {
-          pushOrAppendAi(set, data);
+          pushOrAppendAi(set, data, model ?? undefined);
           return;
         }
         if (event === "sources" && !sourcesAttached) {
           const sources = (data as { sources?: SourceLink[] }).sources ?? [];
           if (sources.length > 0) {
             set((s) => ({
-              history: [...s.history, { role: "ai" as const, text: "", sources }],
+              history: [...s.history, { role: "ai" as const, text: "", model: model ?? undefined, sources }],
             }));
             sourcesAttached = true;
           }
@@ -263,7 +325,7 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
         }
         if (event === "error") {
           console.error("[ai-chat] stream error event", data);
-          pushOrAppendAi(set, `\n\n${USER_MESSAGE.AI_STREAM_BROKEN}`);
+          pushOrAppendAi(set, `\n\n${USER_MESSAGE.AI_STREAM_BROKEN}`, model ?? undefined);
         }
         // "done" 由 reader 自然结束触发，这里不必特殊处理
       };
@@ -307,27 +369,28 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
     } catch (e) {
       console.error("[ai-chat] network error", e);
       if (get().sessionId === capturedSid) {
-        pushOrAppendAi(set, `\n\n${USER_MESSAGE.NETWORK_HICCUP}`);
+        pushOrAppendAi(set, `\n\n${USER_MESSAGE.NETWORK_HICCUP}`, model ?? undefined);
       }
     } finally {
       // 持久化最终结果——若 sessionId 已被 newChat/loadSession 抢占则跳过
       if (get().sessionId === capturedSid) {
         set({ typing: false });
-        upsertSession(snapshotSession(capturedSid, get().context, get().history, createdAt));
+        upsertSession(snapshotSession(capturedSid, get().context, get().history, createdAt, model));
       }
     }
   },
 
   newChat: () => {
     // 当前对话若有用户消息则归档（snapshot 已经在 send() 时持续写入，这里再补一次终态）
-    const { sessionId, context, history } = get();
+    const { sessionId, context, history, defaultModel } = get();
     if (sessionId && hasUserMessage(history)) {
       const createdAt = sessionMeta.get(sessionId) ?? Date.now();
-      upsertSession(snapshotSession(sessionId, context, history, createdAt));
+      upsertSession(snapshotSession(sessionId, context, history, createdAt, get().selectedModel));
     }
     set({
       history: [{ role: "ai", text: welcomeFor(context) }],
       sessionId: null,
+      selectedModel: defaultModel,
       typing: false,
     });
   },
@@ -337,9 +400,15 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
     const cur = get();
     if (cur.sessionId && hasUserMessage(cur.history)) {
       const createdAt = sessionMeta.get(cur.sessionId) ?? Date.now();
-      upsertSession(snapshotSession(cur.sessionId, cur.context, cur.history, createdAt));
+      upsertSession(snapshotSession(cur.sessionId, cur.context, cur.history, createdAt, cur.selectedModel));
     }
     sessionMeta.set(s.id, s.createdAt);
+    const savedModel = s.model?.trim();
+    const selectedModel = cur.modelPreferencesLoaded
+      ? savedModel && cur.pinnedModels.includes(savedModel)
+        ? savedModel
+        : cur.defaultModel ?? cur.pinnedModels[0] ?? null
+      : savedModel || cur.defaultModel;
     set({
       context: {
         key: s.contextKey,
@@ -349,17 +418,19 @@ export const useAIPanel = create<AIPanelState>((set, get) => ({
       },
       history: s.messages,
       sessionId: s.id,
+      selectedModel,
       typing: false,
     });
   },
 
-  reset: () => set({ history: [], typing: false, sessionId: null }),
+  reset: () => set({ history: [], typing: false, sessionId: null, selectedModel: get().defaultModel }),
 }));
 
 /** 末尾若已是 AI 消息则追加；否则新插一条。供流式累加和单条错误提示共用。 */
 function pushOrAppendAi(
   set: (partial: Partial<AIPanelState> | ((s: AIPanelState) => Partial<AIPanelState>)) => void,
   text: string,
+  model?: string,
 ) {
   set((s) => {
     const last = s.history[s.history.length - 1];
@@ -367,7 +438,7 @@ function pushOrAppendAi(
       // 保留 sources 等其他字段（spread last 而不是只塞 text）
       return { history: [...s.history.slice(0, -1), { ...last, text: last.text + text }] };
     }
-    return { history: [...s.history, { role: "ai" as const, text }] };
+    return { history: [...s.history, { role: "ai" as const, text, model }] };
   });
 }
 

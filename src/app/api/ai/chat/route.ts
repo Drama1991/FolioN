@@ -32,6 +32,8 @@ interface ChatBody {
   history?: HistoryLine[];
   user: string;
   context: HomeContext | ItemContext;
+  /** Must be one of the current provider's saved pinned models. */
+  model?: string;
   /** 联网搜索开关：true 时先调 search provider 把结果注入 system prompt 末尾 */
   webSearch?: boolean;
 }
@@ -44,6 +46,12 @@ export async function POST(req: NextRequest) {
   if (!body || !body.user || !body.context) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
+  if (
+    body.model !== undefined &&
+    (typeof body.model !== "string" || body.model.trim().length > 200 || /[\u0000-\u001f]/.test(body.model))
+  ) {
+    return NextResponse.json({ error: "invalid_model" }, { status: 400 });
+  }
 
   const cfg = await getAIConfig();
   if (!isProviderReady(cfg)) {
@@ -52,6 +60,10 @@ export async function POST(req: NextRequest) {
   const provider = getProvider(cfg);
   if (!provider) {
     return NextResponse.json({ error: "not_configured" }, { status: 400 });
+  }
+  const model = body.model?.trim() || cfg[cfg.provider].model;
+  if (!cfg.pinnedModels[cfg.provider].includes(model)) {
+    return NextResponse.json({ error: "model_not_pinned" }, { status: 400 });
   }
 
   // 可选：联网搜索（失败不阻塞，降级为普通对话）
@@ -98,7 +110,7 @@ export async function POST(req: NextRequest) {
           const meta = searchResults.map((s) => ({ title: s.title, url: s.url, domain: s.domain }));
           send("sources", { sources: meta });
         }
-        for await (const delta of provider.chatStream({ messages })) {
+        for await (const delta of provider.chatStream({ messages, model })) {
           if (!delta) continue;
           send("delta", delta);
         }

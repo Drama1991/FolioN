@@ -10,6 +10,8 @@ export interface AISession {
   contextTitle: string;
   contextSubtitle: string;
   item?: AIContextInfo["item"];
+  /** Model selected for the next turn in this conversation. */
+  model?: string;
   messages: ChatMsg[];
   createdAt: number;
   updatedAt: number;

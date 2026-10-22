@@ -35,6 +35,8 @@ export interface AIConfig {
   aggregator: ProviderCreds;
   openai: ProviderCreds;
   gemini: ProviderCreds;
+  /** Per-provider models shown in the AI panel picker. The configured default is always included. */
+  pinnedModels: Record<ProviderKind, string[]>;
   search: SearchConfig;
 }
 
@@ -66,5 +68,10 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   aggregator: { baseUrl: "", apiKey: "", model: "" },
   openai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
   gemini: { baseUrl: "https://generativelanguage.googleapis.com", apiKey: "", model: "gemini-2.0-flash" },
+  pinnedModels: {
+    aggregator: [],
+    openai: ["gpt-4o-mini"],
+    gemini: ["gemini-2.0-flash"],
+  },
   search: { provider: "brave", brave: { apiKey: "" } },
 };

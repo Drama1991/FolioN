@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAIPanel, type SourceLink } from "@/lib/store/ai-panel";
+import type { AIConfig } from "@/lib/ai/types";
 import { suggs } from "@/lib/ai/replies";
 import { AIHistoryDrawer } from "./AIHistory";
 import { DraggableWindow } from "@/components/shared/DraggableWindow";
@@ -11,17 +12,80 @@ export function AIPanel() {
   const context = useAIPanel((s) => s.context);
   const history = useAIPanel((s) => s.history);
   const typing = useAIPanel((s) => s.typing);
+  const selectedModel = useAIPanel((s) => s.selectedModel);
+  const defaultModel = useAIPanel((s) => s.defaultModel);
+  const pinnedModels = useAIPanel((s) => s.pinnedModels);
   const origin = useAIPanel((s) => s.origin);
   const webSearch = useAIPanel((s) => s.webSearch);
   const setOpen = useAIPanel((s) => s.setOpen);
   const setWebSearch = useAIPanel((s) => s.setWebSearch);
   const send = useAIPanel((s) => s.send);
+  const setSelectedModel = useAIPanel((s) => s.setSelectedModel);
+  const setModelPreferences = useAIPanel((s) => s.setModelPreferences);
   const newChat = useAIPanel((s) => s.newChat);
 
   const [input, setInput] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelConfigLoading, setModelConfigLoading] = useState(false);
+  const [modelConfigError, setModelConfigError] = useState<string | null>(null);
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
+  const modelToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open || typing) setModelMenuOpen(false);
+  }, [open, typing]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setModelConfigLoading(true);
+    setModelConfigError(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/config");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = (await res.json()) as { config: AIConfig };
+        if (cancelled) return;
+        const config = result.config;
+        setModelPreferences(config[config.provider].model, config.pinnedModels[config.provider]);
+      } catch (e) {
+        if (!cancelled) setModelConfigError(e instanceof Error ? e.message : "load_failed");
+      } finally {
+        if (!cancelled) setModelConfigLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, setModelPreferences]);
+
+  useEffect(() => {
+    const onConfigUpdated = (event: Event) => {
+      const config = (event as CustomEvent<AIConfig>).detail;
+      if (!config) return;
+      setModelPreferences(config[config.provider].model, config.pinnedModels[config.provider]);
+    };
+    window.addEventListener("folio:ai-config-updated", onConfigUpdated);
+    return () => window.removeEventListener("folio:ai-config-updated", onConfigUpdated);
+  }, [setModelPreferences]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!modelPickerRef.current?.contains(e.target as Node)) setModelMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [modelMenuOpen]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    modelMenuRef.current?.querySelector<HTMLButtonElement>('[data-model-option="true"][aria-pressed="true"]')?.focus();
+  }, [modelMenuOpen]);
 
   useEffect(() => {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
@@ -38,6 +102,36 @@ export function AIPanel() {
   if (!open) return null;
 
   const list = suggs[context.key] ?? suggs.home;
+
+  function onModelMenuKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setModelMenuOpen(false);
+      modelToggleRef.current?.focus();
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+    const options = [...(modelMenuRef.current?.querySelectorAll<HTMLButtonElement>('[data-model-option="true"]') ?? [])];
+    if (options.length === 0) return;
+    e.preventDefault();
+    const currentIndex = options.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number;
+    if (e.key === "Home") nextIndex = 0;
+    else if (e.key === "End") nextIndex = options.length - 1;
+    else if (currentIndex < 0) nextIndex = e.key === "ArrowDown" ? 0 : options.length - 1;
+    else nextIndex = (currentIndex + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+    options[nextIndex].focus();
+  }
+
+  function onModelToggleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setModelMenuOpen(true);
+      return;
+    }
+    onModelMenuKeyDown(e);
+  }
 
   const header = (
     <div style={{ padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
@@ -82,6 +176,14 @@ export function AIPanel() {
               gap: 4,
             }}
           >
+            {m.role === "ai" && m.model && (
+              <span
+                title={`使用模型：${m.model}`}
+                style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text3)", paddingLeft: 2 }}
+              >
+                {m.model}
+              </span>
+            )}
             {m.text && (
               <div
                 style={{
@@ -172,7 +274,148 @@ export function AIPanel() {
               overflowY: "auto",
             }}
           />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div
+              ref={modelPickerRef}
+              onBlur={(e) => {
+                const nextTarget = e.relatedTarget;
+                if (!(nextTarget instanceof Node) || !e.currentTarget.contains(nextTarget)) setModelMenuOpen(false);
+              }}
+              style={{ position: "relative", minWidth: 0 }}
+            >
+              <button
+                type="button"
+                ref={modelToggleRef}
+                className="ai-panel-model-toggle"
+                onClick={() => setModelMenuOpen((value) => !value)}
+                onKeyDown={onModelToggleKeyDown}
+                disabled={typing}
+                aria-label={`当前模型：${selectedModel ?? "未选择"}`}
+                aria-haspopup="dialog"
+                aria-expanded={modelMenuOpen}
+                aria-controls="ai-panel-model-list"
+                title={typing ? "回复生成中，暂不能切换模型" : selectedModel ?? "选择固定模型"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  width: 156,
+                  maxWidth: "min(48vw, 184px)",
+                  minWidth: 96,
+                  height: 28,
+                  padding: "0 9px",
+                  border: "0.5px solid var(--border)",
+                  borderRadius: 999,
+                  background: "var(--bg)",
+                  color: "var(--text2)",
+                  cursor: typing ? "default" : "pointer",
+                  opacity: typing ? 0.6 : 1,
+                  fontFamily: "inherit",
+                  fontSize: 10,
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--mono)" }}>
+                  {selectedModel ?? (modelConfigLoading ? "读取中…" : "选择模型")}
+                </span>
+                <i className="ti ti-chevron-down" aria-hidden="true" style={{ fontSize: 11, flexShrink: 0 }} />
+              </button>
+
+              {modelMenuOpen && (
+                <div
+                  ref={modelMenuRef}
+                  id="ai-panel-model-list"
+                  role="dialog"
+                  aria-label="选择固定模型"
+                  onKeyDown={onModelMenuKeyDown}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    bottom: "calc(100% + 8px)",
+                    width: 258,
+                    maxWidth: "min(82vw, 300px)",
+                    maxHeight: 320,
+                    padding: 6,
+                    overflowY: "auto",
+                    border: "0.5px solid var(--border)",
+                    borderRadius: "var(--r)",
+                    background: "var(--bg)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.14)",
+                    zIndex: 30,
+                  }}
+                >
+                  <div style={{ padding: "7px 8px 8px", borderBottom: "0.5px solid var(--border)", marginBottom: 4 }}>
+                    <p style={{ fontSize: 12, color: "var(--text)" }}>固定的模型</p>
+                    <p style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>仅展示设置中固定的模型</p>
+                  </div>
+                  {modelConfigLoading && pinnedModels.length === 0 && (
+                    <p role="status" style={{ padding: "10px 8px", fontSize: 11, color: "var(--text3)" }}>读取模型设置中…</p>
+                  )}
+                  {modelConfigError && (
+                    <p role="alert" style={{ padding: "8px", fontSize: 11, color: "var(--danger)" }}>
+                      模型设置读取失败。关闭后重新打开面板可重试。
+                    </p>
+                  )}
+                  {!modelConfigLoading && !modelConfigError && pinnedModels.length === 0 && (
+                    <div style={{ padding: "8px" }}>
+                      <p style={{ fontSize: 11, color: "var(--text3)" }}>还没有固定模型。</p>
+                      <a
+                        href="/settings"
+                        onClick={() => setOpen(false)}
+                        style={{ display: "inline-block", marginTop: 6, fontSize: 11, color: "var(--text2)", textDecoration: "underline", textUnderlineOffset: 3 }}
+                      >
+                        前往 AI 设置
+                      </a>
+                    </div>
+                  )}
+                  {pinnedModels.length > 0 && (
+                    <div>
+                      {pinnedModels.map((model) => {
+                        const isSelected = model === selectedModel;
+                        const isDefault = model === defaultModel;
+                        return (
+                          <button
+                            key={model}
+                            type="button"
+                            data-model-option="true"
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              setSelectedModel(model);
+                              setModelMenuOpen(false);
+                              modelToggleRef.current?.focus();
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              width: "100%",
+                              minHeight: 36,
+                              padding: "6px 8px",
+                              border: 0,
+                              borderRadius: "var(--r2)",
+                              background: isSelected ? "var(--bg2)" : "transparent",
+                              color: "var(--text2)",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontFamily: "var(--mono)",
+                              fontSize: 11,
+                            }}
+                          >
+                            <span
+                              style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                              title={model}
+                            >
+                              {model}
+                            </span>
+                            {isDefault && <span style={{ color: "var(--gold)", fontSize: 10, flexShrink: 0 }}>默认</span>}
+                            {isSelected && <i className="ti ti-check" aria-hidden="true" style={{ color: "var(--gold)", fontSize: 13, flexShrink: 0 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setWebSearch(!webSearch)}
@@ -200,6 +443,7 @@ export function AIPanel() {
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                 width: 28, height: 28, borderRadius: 999,
+                marginLeft: "auto",
                 border: "none",
                 background: input.trim() ? "var(--gold)" : "var(--border)",
                 color: input.trim() ? "#1C1C1A" : "var(--text3)",
