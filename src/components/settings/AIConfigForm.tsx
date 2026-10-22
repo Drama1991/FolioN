@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconPin, IconPinFilled } from "@tabler/icons-react";
+import { IconPin } from "@tabler/icons-react";
 import type { AIConfig, ProviderKind } from "@/lib/ai/types";
 
 interface ApiResponse {
@@ -561,10 +561,10 @@ function PinnedModelsBlock({
                   }
                   title={isDefault ? "默认模型必须固定" : isPinned ? "从面板菜单取消固定" : "固定到面板菜单"}
                   style={{
-                    border: `0.5px solid ${isPinned ? "var(--gold)" : "var(--border)"}`,
+                    border: 0,
                     borderRadius: "var(--r2)",
-                    background: isPinned ? "rgba(239,159,39,0.10)" : "transparent",
-                    color: isPinned ? "var(--text)" : "var(--text2)",
+                    background: "transparent",
+                    color: isPinned ? "var(--gold)" : "var(--text3)",
                     padding: 0,
                     width: 28,
                     minHeight: 28,
@@ -575,11 +575,7 @@ function PinnedModelsBlock({
                     flexShrink: 0,
                   }}
                 >
-                  {isPinned ? (
-                    <IconPinFilled size={14} stroke={1.6} aria-hidden />
-                  ) : (
-                    <IconPin size={14} stroke={1.6} aria-hidden />
-                  )}
+                  <IconPin size={16} stroke={1.6} aria-hidden />
                 </button>
               </div>
             );
