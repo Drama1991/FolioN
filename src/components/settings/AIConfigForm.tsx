@@ -125,6 +125,7 @@ export function AIConfigForm() {
   }
 
   function togglePinnedModel(provider: ProviderKind, model: string) {
+    if (!cfg) return;
     const current = cfg.pinnedModels[provider];
     if (current.includes(model)) {
       if (cfg[provider].model.trim() === model) {
@@ -142,6 +143,7 @@ export function AIConfigForm() {
   }
 
   function setDefaultModel(provider: ProviderKind, model: string) {
+    if (!cfg) return;
     patch(provider, { ...cfg[provider], model });
     patch("pinnedModels", {
       ...cfg.pinnedModels,
