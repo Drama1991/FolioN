@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { IconPin, IconPinFilled } from "@tabler/icons-react";
 import type { AIConfig, ProviderKind } from "@/lib/ai/types";
 
 interface ApiResponse {
@@ -574,7 +575,11 @@ function PinnedModelsBlock({
                     flexShrink: 0,
                   }}
                 >
-                  <i className={`ti ti-pin${isPinned ? "-filled" : ""}`} aria-hidden="true" style={{ fontSize: 14 }} />
+                  {isPinned ? (
+                    <IconPinFilled size={14} stroke={1.6} aria-hidden />
+                  ) : (
+                    <IconPin size={14} stroke={1.6} aria-hidden />
+                  )}
                 </button>
               </div>
             );
