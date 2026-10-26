@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ uuid: stri
       body: body.body,
       visibility: (body.visibility ?? 0) as NeoDBVisibility,
     });
-    revalidateTag(cacheTags.myReviews());
+    revalidateTag(cacheTags.myReviews(), { expire: 0 });
     return NextResponse.json({ ok: true, review: res ?? null });
   } catch (err) {
     return neodbErrorResponse(err);
@@ -31,7 +31,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ uuid: s
   const { uuid } = await ctx.params; // 这里是 item_uuid（NeoDB delete 端点按 item 索引）
   try {
     await deleteReview(uuid);
-    revalidateTag(cacheTags.myReviews());
+    revalidateTag(cacheTags.myReviews(), { expire: 0 });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return neodbErrorResponse(err);

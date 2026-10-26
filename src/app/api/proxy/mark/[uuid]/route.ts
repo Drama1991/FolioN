@@ -17,8 +17,8 @@ interface MarkPayload {
 
 function invalidateAfterMark(uuid: string) {
   // 任何 shelf 列表/计数页都过期；该 item 的"我的标记"也过期
-  revalidateTag(cacheTags.shelfAny());
-  revalidateTag(cacheTags.myMark(uuid));
+  revalidateTag(cacheTags.shelfAny(), { expire: 0 });
+  revalidateTag(cacheTags.myMark(uuid), { expire: 0 });
 }
 
 export async function GET(_: NextRequest, ctx: { params: Promise<{ uuid: string }> }) {

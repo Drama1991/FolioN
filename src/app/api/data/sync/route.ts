@@ -14,9 +14,9 @@ export async function POST() {
 
   const t0 = Date.now();
   // 一刀切：所有 shelf 列表缓存失效，下次页面访问会重新拉
-  revalidateTag(neodbTags.shelfAny());
-  revalidateTag(neodbTags.myReviews());
-  revalidateTag(neodbTags.myCollections());
+  revalidateTag(neodbTags.shelfAny(), { expire: 0 });
+  revalidateTag(neodbTags.myReviews(), { expire: 0 });
+  revalidateTag(neodbTags.myCollections(), { expire: 0 });
 
   const shelfTypes: NeoDBShelfType[] = ["wishlist", "progress", "complete", "dropped"];
   try {

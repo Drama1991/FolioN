@@ -35,7 +35,7 @@ folion 是 [NeoDB](https://neodb.social/) 的第三方客户端，把书影音�
 
 ## 技术栈
 
-- **Next.js 15.5** · App Router · Server Components + Route Handlers
+- **Next.js 16** · App Router · Server Components + Route Handlers
 - **React 19** · **TypeScript 5.7**（strict）
 - **Tailwind CSS 4** + 自定义 design tokens（CSS variables）
 - **Zustand 5** · 极简全局状态（AI 会话 / 通知）
@@ -105,7 +105,7 @@ src/
 │   ├── notifications/、store/、format/、appearance.ts
 │   └── …
 ├── types/env.d.ts
-└── middleware.ts                # 全站 session 守卫，未登录重定向至 /login
+└── proxy.ts                     # 全站 session 守卫，未登录重定向至 /login
 ```
 
 ## 设计系统
@@ -127,16 +127,15 @@ src/
 1. 用户在 `/login` 输入 NeoDB 实例 → 后端拿到实例的 OAuth `apps` 凭证（首次注册，后续读缓存）
 2. 跳转到实例授权页 → 回调 `/api/auth/callback` 换 access token
 3. 用 access token 拉一次 `me`，把（instance + token + handle + display + avatar）打成 JWT 写入 HttpOnly cookie
-4. `middleware.ts` 在每个非公开路由前 `verifySession`，失败一律跳 `/login?next=…`
+4. `proxy.ts` 在每个非公开路由前 `verifySession`，失败一律跳 `/login?next=…`
 5. 业务侧通过 `src/lib/neodb/client.ts` 以会话身份调实例 API；写操作（mark / review）走 `/api/proxy/*` 转发，保证 cookie 仅服务端可见
 
 ## 脚本
 
 ```bash
 npm run dev          # next dev
-npm run build        # next build
+npm run build        # next build --webpack
 npm start            # next start
-npm run lint         # next lint
 npm run type-check   # tsc --noEmit
 ```
 

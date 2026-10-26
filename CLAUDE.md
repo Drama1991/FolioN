@@ -6,12 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # next dev，localhost:3000
-npm run build        # next build（依赖兼容问题只在这步暴露）
+npm run build        # next build --webpack（依赖兼容问题只在这步暴露）
 npm run type-check   # tsc --noEmit，提交前必跑
-npm run lint         # next lint
 ```
 
-项目**没有 test runner**。验证靠 `type-check` + 浏览器实机访问（特别是移动端）。`dev 跑通 ≠ prod 跑通` —— webpack 转译会统一 ESM/CJS，依赖兼容性问题必须 `next build` + Vercel 部署才算验证完（曾踩 `isomorphic-dompurify → jsdom` ESM 链炸过 lambda）。
+项目**没有 test runner**。验证靠 `type-check` + 浏览器实机访问（特别是移动端）。`dev 跑通 ≠ prod 跑通` —— webpack 转译会统一 ESM/CJS，依赖兼容性问题必须 `next build --webpack` + Vercel 部署才算验证完（曾踩 `isomorphic-dompurify → jsdom` ESM 链炸过 lambda）。
 
 ## 项目本质
 
@@ -26,9 +25,9 @@ folion 是 [NeoDB](https://neodb.social/) 的第三方客户端，**自己不存
 
 ## 架构 big picture
 
-- **Next.js 15 App Router**，全 SSR + Server Components；React 19；TypeScript 5.7 strict
+- **Next.js 16 App Router**，全 SSR + Server Components；React 19；TypeScript 5.7 strict
 - `src/app/(auth)/login/` — 脱离 shell 的居中布局
-- `src/app/(shell)/*` — 主应用，共享顶栏 / 抽屉 / 底部 5-tab；`middleware.ts` 守卫每个非公开路由
+- `src/app/(shell)/*` — 主应用，共享顶栏 / 抽屉 / 底部 5-tab；`proxy.ts` 守卫每个非公开路由
 - `src/app/api/proxy/*` — 写操作（mark / review / item-posts）转发，token 仅服务端可见
 - `src/app/api/ai/chat/route.ts` — SSE 流（`event: sources / delta / done / error`）
 - `src/lib/neodb/{client,mappers,types,mediumMap,oauth}.ts` — NeoDB 集成层
@@ -36,7 +35,7 @@ folion 是 [NeoDB](https://neodb.social/) 的第三方客户端，**自己不存
 - `src/lib/user-message.ts` — `USER_MESSAGE` 常量，10+ 处消费
 - `src/lib/ai/` — 3 家 provider（openai-compat / openai-direct / gemini）+ Brave 搜索
 
-数据流：login → OAuth → JWT cookie → middleware 验签 → SSR page 调 `client.ts` → mapper 转 `UiItem` → 渲染。写操作走 `/api/proxy/*`。
+数据流：login → OAuth → JWT cookie → proxy 验签 → SSR page 调 `client.ts` → mapper 转 `UiItem` → 渲染。写操作走 `/api/proxy/*`。
 
 ## 关键约束（违反过会重蹈，见 `tasks/lessons.md`）
 

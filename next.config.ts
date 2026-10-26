@@ -37,10 +37,6 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   // 不配 images.remotePatterns：next/image 在 Cover 组件里走 unoptimized，
   // 不经 Next image loader，无需远端 host 白名单也就没有任意源代理 SSRF 面。
-  experimental: {
-    // 认证 fetch 不走 Cache Components
-    // (在 Next.js 16 这是 cacheComponents: false；15.x 默认即为 false)
-  },
   async headers() {
     return [
       {

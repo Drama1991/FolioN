@@ -4,9 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,7 +13,7 @@
     "@tabler/icons-react": "^3.24.0",
     "@types/sanitize-html": "^2.16.1",
     "jose": "^5.9.6",
-    "next": "^15.5.28",
+    "next": "^16.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sanitize-html": "^2.17.4",
